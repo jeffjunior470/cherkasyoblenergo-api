@@ -15,6 +15,9 @@
 
 </div>
 
+This project is a fork of the upstream repository:
+[sigmanor/cherkasyoblenergo-api](https://github.com/sigmanor/cherkasyoblenergo-api).
+
 ## Public Instance
 
 A public instance of this API is available at:
