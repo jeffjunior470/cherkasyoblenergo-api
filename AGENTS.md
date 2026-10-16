@@ -8,15 +8,21 @@ A Go REST API that parses and serves electricity blackout schedules from Cherkas
 
 ## Tech Stack
 
-- **Language:** Go 1.24+
+- **Language:** Go 1.25+
 - **Web Framework:** Fiber v2
-- **ORM:** GORM with SQLite driver
+- **ORM:** GORM with the CGO-free `github.com/glebarez/sqlite` driver
 - **Testing:** Standard `testing` package + `testify` (assert/require)
 - **Configuration:** Viper + godotenv
 - **HTML Parsing:** goquery
 - **Scheduling:** robfig/cron/v3
 
 ## Build & Run Commands
+
+Normal builds and tests must work with `CGO_ENABLED=0`. A C compiler and a
+separate SQLite installation are not required. See the READMEs for Windows
+cmd.exe and Ubuntu build commands. Keep database settings in the driver's
+`_pragma` DSN parameters so they apply to every pooled connection; do not restore
+the old mattn-specific `_journal_mode`, `_busy_timeout`, or `_loc` options.
 
 ```bash
 # Install dependencies
@@ -61,6 +67,9 @@ go test -cover ./...
 # Run tests with race detection
 go test -race ./...
 ```
+
+Race detection is an optional separate check: Go's race detector requires CGO
+and an appropriate C toolchain. It is not part of the CGO-free deployment path.
 
 ## Project Structure
 

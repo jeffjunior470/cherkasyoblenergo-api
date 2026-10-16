@@ -1,14 +1,14 @@
 package middleware
 
 import (
+	"errors"
 	"log"
-	"strings"
 	"time"
-
-	"cherkasyoblenergo-api/internal/models"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
+
+	"cherkasyoblenergo-api/internal/models"
 )
 
 type IPRateLimiter struct {
@@ -109,7 +109,7 @@ func (rl *IPRateLimiter) Middleware() fiber.Handler {
 				return tx.Save(&entry).Error
 			})
 
-			if err == nil || !strings.Contains(err.Error(), "database is locked") {
+			if !isSQLiteBusy(err) {
 				break
 			}
 			time.Sleep(time.Millisecond * 50 * time.Duration(attempt+1))
@@ -140,6 +140,12 @@ func (rl *IPRateLimiter) Middleware() fiber.Handler {
 
 		return c.Next()
 	}
+}
+
+func isSQLiteBusy(err error) bool {
+	// Extended result codes retain the primary SQLite code in the low byte.
+	var sqliteErr interface{ Code() int }
+	return errors.As(err, &sqliteErr) && (sqliteErr.Code()&0xff == 5 || sqliteErr.Code()&0xff == 6)
 }
 
 func intToString(n int) string {

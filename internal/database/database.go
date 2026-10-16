@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"cherkasyoblenergo-api/internal/config"
-	"cherkasyoblenergo-api/internal/logger"
-
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
+
+	"cherkasyoblenergo-api/internal/config"
+	"cherkasyoblenergo-api/internal/logger"
 )
 
 const defaultDBName = "cherkasyoblenergo.db"
@@ -59,7 +59,12 @@ func ConnectDB(cfg config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("database path validation failed: %w", err)
 	}
 
-	dsn := fmt.Sprintf("%s?_journal_mode=WAL&_busy_timeout=5000&_loc=Local", dbPath)
+	// Configure every connection in the pool, not just a single connection.
+	params := url.Values{
+		"_pragma":      {"busy_timeout(5000)", "journal_mode(WAL)", "foreign_keys(1)"},
+		"_time_format": {"sqlite"},
+	}
+	dsn := dbPath + "?" + params.Encode()
 	dialector := sqlite.Open(dsn)
 	log.Printf("Using SQLite database at: %s", dbPath)
 
@@ -86,10 +91,6 @@ func ConnectDB(cfg config.Config) (*gorm.DB, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
-	}
-
-	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
-		log.Printf("Failed to enable foreign keys for SQLite: %v", err)
 	}
 
 	log.Printf("Successfully connected to database")

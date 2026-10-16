@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"cherkasyoblenergo-api/internal/models"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,10 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	"cherkasyoblenergo-api/internal/models"
 )
 
 func setupTestDB() *gorm.DB {
@@ -1046,7 +1047,7 @@ func TestGetSchedule_EqualDateOrder(t *testing.T) {
 
 	app := fiber.New()
 	app.Get("/schedule", GetSchedule(db))
-	
+
 	req := newGetScheduleRequest(map[string]string{
 		"option": "latest_n",
 		"limit":  "2",

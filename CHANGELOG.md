@@ -1,3 +1,21 @@
+## Unreleased
+
+### Changed
+
+* Replace the CGO-based SQLite driver with `github.com/glebarez/sqlite` v1.11.0; keep GORM and the existing SQLite schema.
+* Configure WAL, a 5000 ms busy timeout, and foreign keys on every pooled connection.
+* Retain stored timestamp offsets on reads instead of using the previous `_loc=Local` conversion.
+* Build Docker images and run CI tests with `CGO_ENABLED=0`; remove C build tools from the Docker builder.
+* Document Windows and Linux builds, runtime configuration, and database upgrade precautions.
+
+### Fixed
+
+* Detect SQLite busy/locked errors by result code so retries work with the new driver.
+
+### Tests
+
+* Add file-database checks for connection settings, legacy timestamps, reopening, migrations, and actual lock errors.
+
 ## [2.8.1](https://github.com/Sigmanor/cherkasyoblenergo-api/compare/v2.8.0...v2.8.1) (2026-10-06)
 
 

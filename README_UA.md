@@ -4,11 +4,11 @@
 
 [![EN](https://img.shields.io/badge/English-c9c9c9.svg)](README.md) [![UA](https://img.shields.io/badge/Ukrainian-0e7837.svg)](README_UA.md)
 
-[![Deploy](https://github.com/Sigmanor/cherkasyoblenergo-api/actions/workflows/deploy.yml/badge.svg)](https://github.com/Sigmanor/cherkasyoblenergo-api/actions/workflows/deploy.yml)
-[![Tests](https://github.com/Sigmanor/cherkasyoblenergo-api/actions/workflows/tests.yml/badge.svg)](https://github.com/Sigmanor/cherkasyoblenergo-api/actions/workflows/tests.yml)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/Sigmanor/cherkasyoblenergo-api)](https://go.dev/)
-[![License](https://img.shields.io/github/license/Think-Root/chappie_server)](LICENSE)
-[![Releases](https://img.shields.io/github/release/Sigmanor/cherkasyoblenergo-api.svg)](https://github.com/Sigmanor/cherkasyoblenergo-api/releases)
+[![Deploy](https://github.com/jeffjunior470/cherkasyoblenergo-api/actions/workflows/deploy.yml/badge.svg)](https://github.com/jeffjunior470/cherkasyoblenergo-api/actions/workflows/deploy.yml)
+[![Tests](https://github.com/jeffjunior470/cherkasyoblenergo-api/actions/workflows/tests.yml/badge.svg)](https://github.com/jeffjunior470/cherkasyoblenergo-api/actions/workflows/tests.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/jeffjunior470/cherkasyoblenergo-api)](https://go.dev/)
+[![License](https://img.shields.io/github/license/jeffjunior470/cherkasyoblenergo-api)](LICENSE)
+[![Releases](https://img.shields.io/github/release/jeffjunior470/cherkasyoblenergo-api.svg)](https://github.com/jeffjunior470/cherkasyoblenergo-api/releases)
 [![Changelog](https://img.shields.io/badge/changelog-md-blue)](CHANGELOG.md)
 
 **Неофіційне API** для отримання графіків відключень електроенергії з [cherkasyoblenergo.com](https://cherkasyoblenergo.com/)
@@ -30,7 +30,7 @@ https://hue.pp.ua/cherkasyoblenergo/api/
 
 ## Можливості
 
-- Дані графіків відключень електроенергії в реальному часі
+- Автоматичне оновлення графіків (за замовчуванням кожні 5 хвилин)
 - Доступ до історичних даних
 - RESTful API інтерфейс
 - Rate limiting по IP адресі
@@ -40,20 +40,25 @@ https://hue.pp.ua/cherkasyoblenergo/api/
 
 ### Вимоги
 
-- Go 1.24 або вище
+- Go 1.25 або вище для збірки з вихідного коду
+
+SQLite вбудовано через драйвер на Go. Компілятор C, окреме встановлення SQLite
+та CGO не потрібні. Для запуску готового виконуваного файлу Go не потрібний.
+Використовується `github.com/glebarez/sqlite` v1.11.0 разом із GORM.
+Для Windows і Linux потрібні окремі виконувані файли відповідної архітектури.
 
 ### Налаштування
 
 1. **Клонуйте репозиторій**
 
    ```bash
-   git clone https://github.com/Sigmanor/cherkasyoblenergo-api.git
+   git clone https://github.com/jeffjunior470/cherkasyoblenergo-api.git
    cd cherkasyoblenergo-api
    ```
 
 2. **Налаштуйте змінні середовища**
 
-   Створіть файл `.env` у кореневій директорії. Дивіться таблицю нижче для всіх доступних опцій:
+   Створіть файл `.env` у робочій директорії: поточний завантажувач конфігурації вимагає його навіть за наявності змінних середовища. За основу можна взяти `.env.example`. Для локального HTTP встановіть `FORCE_HTTPS=false`; залиште `API_KEY=` порожнім для роботи без автентифікації або замініть приклад власним ключем. Доступні налаштування:
 
    | Змінна | Обов'язкова | За замовчуванням | Опис |
    |--------|-------------|------------------|------|
@@ -75,9 +80,56 @@ https://hue.pp.ua/cherkasyoblenergo/api/
 
 ### Збірка
 
-```bash
-go build -o cherkasyoblenergo_api ./cmd/server/main.go
+**Windows (cmd.exe):**
+
+```bat
+set CGO_ENABLED=0
+go mod download
+go build -o cherkasyoblenergo_api.exe ./cmd/server
+cherkasyoblenergo_api.exe
 ```
+
+**Ubuntu / Linux:**
+
+```bash
+export CGO_ENABLED=0
+go mod download
+go build -o cherkasyoblenergo_api ./cmd/server
+./cherkasyoblenergo_api
+```
+
+Виконуйте команди з директорії проєкту, де лежить `.env`. Каталог бази даних
+має бути доступним для запису. Після запуску перевірте
+`http://localhost:8080/cherkasyoblenergo/api/`. Початковий парсинг графіків
+виконується у фоні, після чого працює періодичне оновлення. Значення `today`
+і `tomorrow` залежать від локального часового поясу комп'ютера; для українських
+дат налаштуйте `Europe/Kyiv`.
+
+Для розгортання готової програми скопіюйте виконуваний файл та свій `.env`.
+Зберігайте SQLite-базу за шляхом `DB_NAME`. Для запуску готового файлу Go та
+Docker не потрібні.
+
+### Перехід на SQLite-драйвер без CGO
+
+Замість `gorm.io/driver/sqlite` / `github.com/mattn/go-sqlite3` використовується
+драйвер без CGO. База залишається файлом SQLite; для наявної схеми експорт та
+імпорт даних не очікуються. Перед оновленням чинного розгортання зупиніть
+програму й створіть резервну копію бази, придатну для відновлення, разом із
+файлами `-wal` та `-shm`, якщо вони залишилися.
+
+Кожне з'єднання отримує WAL, очікування блокувань 5000 мс та перевірку зовнішніх
+ключів. Дати записуються в текстовому форматі, сумісному із SQLite. Під час
+читання зберігається записане часове зміщення замість приведення через стару
+опцію `_loc=Local`; сам момент часу не змінюється. Маршрути API та назви полів
+JSON залишилися тими самими. Повторні спроби при блокуванні визначаються за
+кодами SQLite, а не за текстом помилки.
+
+### Docker
+
+Dockerfile збирає програму з `CGO_ENABLED=0` без встановлення GCC та musl-dev.
+Docker є опціональним. Наявний `docker-compose.app.yml` очікує зовнішню мережу
+`think-root-network` і каталог бази, доступний для запису UID/GID `1000:1000`;
+для окремого розгортання адаптуйте ці налаштування.
 
 ## Документація API
 
@@ -210,9 +262,23 @@ curl "http://localhost:8080/cherkasyoblenergo/api/blackout-schedule?option=lates
 
 ## Запуск тестів
 
-```bash
+Windows (cmd.exe):
+
+```bat
+set CGO_ENABLED=0
 go test ./...
 ```
+
+Ubuntu / Linux:
+
+```bash
+CGO_ENABLED=0 go test ./...
+```
+
+CI також виконує тести без CGO. Перевірки бази охоплюють PRAGMA для з'єднань,
+старі UTC-дати, нові дати з часовим зміщенням, повторне відкриття файлової бази,
+міграцію схеми та розпізнавання блокувань. Тести завантаження новин використовують
+локальний HTTP-сервер.
 
 ## Ліцензія
 

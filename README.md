@@ -4,11 +4,11 @@
 
 [![EN](https://img.shields.io/badge/English-0e7837.svg)](README.md) [![UA](https://img.shields.io/badge/Ukrainian-c9c9c9.svg)](README_UA.md)
 
-[![Deploy](https://github.com/Sigmanor/cherkasyoblenergo-api/actions/workflows/deploy.yml/badge.svg)](https://github.com/Sigmanor/cherkasyoblenergo-api/actions/workflows/deploy.yml)
-[![Tests](https://github.com/Sigmanor/cherkasyoblenergo-api/actions/workflows/tests.yml/badge.svg)](https://github.com/Sigmanor/cherkasyoblenergo-api/actions/workflows/tests.yml)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/Sigmanor/cherkasyoblenergo-api)](https://go.dev/)
-[![License](https://img.shields.io/github/license/Think-Root/chappie_server)](LICENSE)
-[![Releases](https://img.shields.io/github/release/Sigmanor/cherkasyoblenergo-api.svg)](https://github.com/Sigmanor/cherkasyoblenergo-api/releases)
+[![Deploy](https://github.com/jeffjunior470/cherkasyoblenergo-api/actions/workflows/deploy.yml/badge.svg)](https://github.com/jeffjunior470/cherkasyoblenergo-api/actions/workflows/deploy.yml)
+[![Tests](https://github.com/jeffjunior470/cherkasyoblenergo-api/actions/workflows/tests.yml/badge.svg)](https://github.com/jeffjunior470/cherkasyoblenergo-api/actions/workflows/tests.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/jeffjunior470/cherkasyoblenergo-api)](https://go.dev/)
+[![License](https://img.shields.io/github/license/jeffjunior470/cherkasyoblenergo-api)](LICENSE)
+[![Releases](https://img.shields.io/github/release/jeffjunior470/cherkasyoblenergo-api.svg)](https://github.com/jeffjunior470/cherkasyoblenergo-api/releases)
 [![Changelog](https://img.shields.io/badge/changelog-md-blue)](CHANGELOG.md)
 
 **Unofficial API** for retrieving power outage schedules from [cherkasyoblenergo.com](https://cherkasyoblenergo.com/)
@@ -30,7 +30,7 @@ Feel free to use it for your projects. However, please note that this instance i
 
 ## Features
 
-- Real-time power outage schedule data
+- Automatic schedule updates (every 5 minutes by default)
 - Historical data access
 - RESTful API interface
 - IP-based rate limiting
@@ -40,20 +40,25 @@ Feel free to use it for your projects. However, please note that this instance i
 
 ### Prerequisites
 
-- Go 1.24 or higher
+- Go 1.25 or higher to build from source
+
+SQLite is embedded through a pure-Go driver. A C compiler, a separate SQLite
+installation, and CGO are not required. Prebuilt binaries do not require Go.
+The driver is `github.com/glebarez/sqlite` v1.11.0, used with GORM.
+Windows and Linux need separate binaries for the target architecture.
 
 ### Setup
 
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/sigmanor/cherkasyoblenergo-api.git
+   git clone https://github.com/jeffjunior470/cherkasyoblenergo-api.git
    cd cherkasyoblenergo-api
    ```
 
 2. **Configure environment variables**
 
-   Create a `.env` file in the root directory. See the table below for all available options:
+   Create a `.env` file in the working directory; the current configuration loader requires this file, even when settings are supplied through environment variables. You can copy `.env.example` to start. For local HTTP use, set `FORCE_HTTPS=false`; leave `API_KEY=` empty to disable authentication, or replace the example key with your own key. See the table below for all available options:
 
    | Variable | Required | Default | Description |
    |----------|----------|---------|-------------|
@@ -75,9 +80,55 @@ Feel free to use it for your projects. However, please note that this instance i
 
 ### Building
 
-```bash
-go build -o cherkasyoblenergo_api ./cmd/server/main.go
+**Windows (cmd.exe):**
+
+```bat
+set CGO_ENABLED=0
+go mod download
+go build -o cherkasyoblenergo_api.exe ./cmd/server
+cherkasyoblenergo_api.exe
 ```
+
+**Ubuntu / Linux:**
+
+```bash
+export CGO_ENABLED=0
+go mod download
+go build -o cherkasyoblenergo_api ./cmd/server
+./cherkasyoblenergo_api
+```
+
+Run these commands from the project directory containing `.env`. The database
+directory must be writable. After startup, check
+`http://localhost:8080/cherkasyoblenergo/api/`. Initial schedule parsing runs in
+the background, followed by periodic updates. `today` and `tomorrow` use the
+host's local timezone; configure it as `Europe/Kyiv` for Ukrainian dates.
+
+To deploy a built binary, copy it and your `.env` to the target computer. Keep
+the SQLite database at the configured `DB_NAME` path. Go and Docker are not
+required to run the binary.
+
+### SQLite driver migration
+
+The application now uses a CGO-free SQLite driver instead of
+`gorm.io/driver/sqlite` / `github.com/mattn/go-sqlite3`. The database remains a
+SQLite file; no export/import is expected for the existing schema. Before
+upgrading an existing deployment, stop the application and make a restorable
+backup of the database, including any remaining `-wal` and `-shm` files.
+
+Every connection is configured with WAL, a 5000 ms busy timeout, and foreign-key
+enforcement. Timestamps are written in SQLite-compatible text format. Stored
+offsets are retained on reads rather than normalized through the old
+`_loc=Local` option; the represented instant is unchanged. API routes and JSON
+field names remain unchanged. Lock retries use SQLite result codes instead of
+matching error-message text.
+
+### Docker
+
+The Dockerfile builds with `CGO_ENABLED=0` and does not install GCC or musl-dev.
+Docker is optional. The supplied `docker-compose.app.yml` expects an existing
+external network named `think-root-network` and a writable database mount for
+UID/GID `1000:1000`; adapt these settings for a standalone deployment.
 
 ## API Documentation
 
@@ -210,9 +261,22 @@ If `API_KEY` is not set or empty, the API remains public.
 
 ## Running Tests
 
-```bash
+Windows (cmd.exe):
+
+```bat
+set CGO_ENABLED=0
 go test ./...
 ```
+
+Ubuntu / Linux:
+
+```bash
+CGO_ENABLED=0 go test ./...
+```
+
+CI also runs with CGO disabled. Database tests cover connection PRAGMAs, legacy
+UTC timestamps, new timestamps with offsets, reopening a file database, schema
+migration, and lock-error detection. Fetch tests use a local HTTP test server.
 
 ## License
 

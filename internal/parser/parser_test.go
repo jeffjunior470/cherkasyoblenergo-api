@@ -1,14 +1,15 @@
 package parser
 
 import (
-	"cherkasyoblenergo-api/internal/models"
 	"testing"
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	"cherkasyoblenergo-api/internal/models"
 )
 
 func setupParserTestDB(t *testing.T) *gorm.DB {
