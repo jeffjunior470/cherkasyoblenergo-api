@@ -15,6 +15,9 @@
 
 </div>
 
+Цей проєкт є форком основного репозиторію:
+[sigmanor/cherkasyoblenergo-api](https://github.com/sigmanor/cherkasyoblenergo-api).
+
 ## Публічний інстанс
 
 Публічний інстанс цього API доступний за адресою:
