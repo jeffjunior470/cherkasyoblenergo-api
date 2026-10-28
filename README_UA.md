@@ -155,6 +155,7 @@ GET /blackout-schedule
 | Параметр | Обов'язковий | Опис |
 |----------|--------------|------|
 | `option` | Так | `all`, `latest_n`, `by_date` або `by_schedule_date` |
+| `formatted` | Ні | `1` — JSON із відступами у два пробіли; `0` або відсутній параметр — компактний JSON |
 | `date` | Для `by_date`, `by_schedule_date` | `YYYY-MM-DD`, `today` або `tomorrow` |
 | `limit` | Для `latest_n` | Ціле число > 0 |
 | `queue` | Ні | Значення черг через кому (наприклад, `3_2` або `4_1,3_1`) |

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
 	"cherkasyoblenergo-api/internal/models"
@@ -1035,6 +1037,50 @@ func TestGetSchedule_DateValues_CaseInsensitive(t *testing.T) {
 			resp, err := app.Test(req)
 			assert.NoError(t, err)
 			assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+		})
+	}
+}
+
+func TestGetSchedule_Formatted(t *testing.T) {
+	db := setupTestDB()
+	require.NoError(t, db.Model(&models.Schedule{}).Where("id = ?", 1).
+		Update("schedule_date", time.Now().Format("2006-01-02")).Error)
+	app := fiber.New()
+	app.Get("/schedule", GetSchedule(db))
+
+	queries := []string{
+		"option=all",
+		"option=latest_n&limit=2",
+		"option=by_date&date=today",
+		"option=by_schedule_date&date=today",
+		"option=by_schedule_date&date=today&queue=1_1,2_2",
+	}
+	for _, query := range queries {
+		t.Run(query, func(t *testing.T) {
+			var compactBody []byte
+			for _, formatted := range []string{"", "&formatted=0", "&formatted=1"} {
+				resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/schedule?"+query+formatted, nil))
+				require.NoError(t, err)
+				require.Equal(t, fiber.StatusOK, resp.StatusCode)
+				assert.Contains(t, resp.Header.Get("Content-Type"), "application/json")
+				body, err := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				require.NoError(t, err)
+				require.True(t, json.Valid(body))
+
+				if formatted == "" {
+					compactBody = body
+					assert.NotContains(t, string(body), "\n")
+				} else if formatted == "&formatted=0" {
+					assert.Equal(t, string(compactBody), string(body))
+				} else {
+					var expected bytes.Buffer
+					require.NoError(t, json.Indent(&expected, compactBody, "", "  "))
+					assert.Equal(t, expected.String(), string(body))
+					assert.Contains(t, string(body), "\n  {\n    ")
+					assert.JSONEq(t, string(compactBody), string(body))
+				}
+			}
 		})
 	}
 }

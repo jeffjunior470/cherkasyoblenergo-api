@@ -154,6 +154,7 @@ Retrieve scheduling records based on filter options.
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `option` | Yes | `all`, `latest_n`, `by_date`, or `by_schedule_date` |
+| `formatted` | No | `1` for pretty-printed JSON with two-space indentation; `0` or omitted for compact JSON |
 | `date` | For `by_date`, `by_schedule_date` | `YYYY-MM-DD`, `today`, or `tomorrow` |
 | `limit` | For `latest_n` | Integer > 0 |
 | `queue` | No | Comma-separated queue identifiers (e.g., `3_2` or `4_1,3_1`) |

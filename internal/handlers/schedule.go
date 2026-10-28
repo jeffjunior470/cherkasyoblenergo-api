@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"cherkasyoblenergo-api/internal/config"
-	"cherkasyoblenergo-api/internal/models"
-	"cherkasyoblenergo-api/internal/utils"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -12,6 +10,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
+
+	"cherkasyoblenergo-api/internal/config"
+	"cherkasyoblenergo-api/internal/models"
+	"cherkasyoblenergo-api/internal/utils"
 )
 
 func GetAPIInfo() fiber.Handler {
@@ -43,6 +45,13 @@ func GetAPIInfo() fiber.Handler {
 							"type":        "integer",
 							"required":    false,
 							"description": "Number of records to return (for latest_n and by_schedule_date options)",
+						},
+						{
+							"name":        "formatted",
+							"type":        "integer",
+							"required":    false,
+							"description": "Set to 1 for pretty-printed JSON with two-space indentation; otherwise JSON is compact",
+							"values":      []int{0, 1},
 						},
 						{
 							"name":        "queue",
@@ -77,10 +86,11 @@ func GetAPIInfo() fiber.Handler {
 }
 
 type ScheduleFilter struct {
-	Option string `json:"option"`
-	Date   string `json:"date"`
-	Limit  int    `json:"limit"`
-	Queue  string `json:"queue"`
+	Option    string `json:"option"`
+	Date      string `json:"date"`
+	Limit     int    `json:"limit"`
+	Queue     string `json:"queue"`
+	Formatted bool   `json:"formatted"`
 }
 
 func parseAndValidateQueues(queueStr string) ([]string, error) {
@@ -259,15 +269,24 @@ func handleScheduleRequest(c *fiber.Ctx, db *gorm.DB, filter ScheduleFilter) err
 		response = buildFilteredResponse(schedules, validatedQueues)
 	}
 
+	if filter.Formatted {
+		body, err := json.MarshalIndent(response, "", "  ")
+		if err != nil {
+			return err
+		}
+		c.Type("json")
+		return c.Send(body)
+	}
 	return c.JSON(response)
 }
 
 func GetSchedule(db *gorm.DB) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		filter := ScheduleFilter{
-			Option: c.Query("option"),
-			Date:   c.Query("date"),
-			Queue:  c.Query("queue"),
+			Option:    c.Query("option"),
+			Date:      c.Query("date"),
+			Queue:     c.Query("queue"),
+			Formatted: c.Query("formatted") == "1",
 		}
 
 		if limitStr := c.Query("limit"); limitStr != "" {
