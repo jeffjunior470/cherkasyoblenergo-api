@@ -18,19 +18,6 @@
 This project is a fork of the upstream repository:
 [sigmanor/cherkasyoblenergo-api](https://github.com/sigmanor/cherkasyoblenergo-api).
 
-## Public Instance
-
-A public instance of this API is available at:
-
-```
-https://hue.pp.ua/cherkasyoblenergo/api/
-```
-
-Feel free to use it for your projects. However, please note that this instance is provided "as is" without any guarantees of availability or uptime. For production use cases or if you need reliability, consider self-hosting your own instance.
-
-> [!NOTE]
-> This public instance has a rate limit of 30 requests per minute per IP address.
-
 ## Features
 
 - Automatic schedule updates (every 5 minutes by default)
@@ -155,6 +142,7 @@ Retrieve scheduling records based on filter options.
 |-----------|----------|-------------|
 | `option` | Yes | `all`, `latest_n`, `by_date`, or `by_schedule_date` |
 | `formatted` | No | `1` for pretty-printed JSON with two-space indentation; `0` or omitted for compact JSON |
+| `format` | No | `json` (default) for JSON output, or `html` for an HTML page with schedules. HTML output uses `static/schedule.css`, which can be edited before building the Docker image |
 | `date` | For `by_date`, `by_schedule_date` | `YYYY-MM-DD`, `today`, or `tomorrow` |
 | `limit` | For `latest_n` | Integer > 0 |
 | `queue` | No | Comma-separated queue identifiers (e.g., `3_2` or `4_1,3_1`) |
@@ -252,6 +240,8 @@ By default, the API is public and requires no authentication. For private instan
    ```
 
 If `API_KEY` is not set or empty, the API remains public.
+
+Health check is available at `GET /health` and does not require an API key. It returns the service and database status in JSON format. Docker Compose uses this endpoint for its container health check.
 
 ### Error Responses
 

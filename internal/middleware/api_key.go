@@ -8,6 +8,10 @@ import (
 
 func APIKeyAuth(apiKey string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		if c.Path() == "/health" {
+			return c.Next()
+		}
+
 		if apiKey == "" {
 			return c.Next()
 		}

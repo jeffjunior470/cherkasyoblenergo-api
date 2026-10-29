@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"regexp"
 	"strconv"
 	"strings"
@@ -91,6 +92,7 @@ type ScheduleFilter struct {
 	Limit     int    `json:"limit"`
 	Queue     string `json:"queue"`
 	Formatted bool   `json:"formatted"`
+	Format    string `json:"format"`
 }
 
 func parseAndValidateQueues(queueStr string) ([]string, error) {
@@ -185,6 +187,13 @@ func resolveDateValue(dateStr string) string {
 }
 
 func handleScheduleRequest(c *fiber.Ctx, db *gorm.DB, filter ScheduleFilter) error {
+	if filter.Format == "" {
+		filter.Format = "json"
+	}
+	if filter.Format != "json" && filter.Format != "html" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid format parameter, expected 'json' or 'html'"})
+	}
+
 	filter.Date = resolveDateValue(filter.Date)
 
 	var schedules []models.Schedule
@@ -262,6 +271,16 @@ func handleScheduleRequest(c *fiber.Ctx, db *gorm.DB, filter ScheduleFilter) err
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
+	if filter.Format == "html" {
+		queues := validatedQueues
+		if len(queues) == 0 {
+			queues = []string{"1_1", "1_2", "2_1", "2_2", "3_1", "3_2", "4_1", "4_2", "5_1", "5_2", "6_1", "6_2"}
+		}
+		page := buildScheduleHTML(schedules, queues)
+		c.Type("html")
+		return c.SendString(page)
+	}
+
 	var response interface{}
 	if len(validatedQueues) == 0 {
 		response = schedules
@@ -280,6 +299,59 @@ func handleScheduleRequest(c *fiber.Ctx, db *gorm.DB, filter ScheduleFilter) err
 	return c.JSON(response)
 }
 
+func buildScheduleHTML(schedules []models.Schedule, queues []string) string {
+	var b strings.Builder
+	b.WriteString(`<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"><title>Графіки відключень</title><link rel="stylesheet" href="/static/schedule.css"></head><body>`)
+	b.WriteString(`<h1>Графіки відключень електроенергії</h1>`)
+	b.WriteString(`<p><a href="https://www.cherkasyoblenergo.com/">Новини Черкасиобленерго</a></p>`)
+	b.WriteString(`<table border="1" cellpadding="4" cellspacing="0"><thead><tr><th>Дата</th><th>ID новини</th><th>Розклад на</th><th>Заголовок</th></tr></thead><tbody>`)
+
+	for i := range schedules {
+		sch := &schedules[i]
+		if sch.ScheduleDate == "" {
+			sch.ScheduleDate = utils.ExtractScheduleDateFromTitle(sch.Title)
+		}
+		b.WriteString(`<tr><td>`)
+		b.WriteString(html.EscapeString(formatDateOrDateTime(sch.Date)))
+		b.WriteString(`</td><td>`)
+		b.WriteString(html.EscapeString(fmt.Sprintf("%d", sch.NewsID)))
+		b.WriteString(`</td><td>`)
+		b.WriteString(html.EscapeString(formatScheduleDate(sch.ScheduleDate)))
+		b.WriteString(`</td><td>`)
+		b.WriteString(html.EscapeString(sch.Title))
+		b.WriteString(`</td></tr>`)
+		b.WriteString(`<tr class="nested-header"><td></td><td colspan="2">Номер черги</td><td>Графік</td></tr>`)
+		for _, q := range queues {
+			queueLabel := "Черга " + strings.ReplaceAll(q, "_", ".")
+			b.WriteString(`<tr class="nested-row"><td></td><td colspan="2">`)
+			b.WriteString(html.EscapeString(queueLabel))
+			b.WriteString(`</td><td>`)
+			b.WriteString(html.EscapeString(getQueueValue(sch, q)))
+			b.WriteString(`</td></tr>`)
+		}
+	}
+	b.WriteString(`</tbody></table></body></html>`)
+	return b.String()
+}
+
+func formatDateOrDateTime(t time.Time) string {
+	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 {
+		return t.Format("02.01.2006")
+	}
+	return t.Format("02.01.2006 15:04")
+}
+
+func formatScheduleDate(value string) string {
+	if value == "" {
+		return ""
+	}
+	date, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return value
+	}
+	return date.Format("02.01.2006")
+}
+
 func GetSchedule(db *gorm.DB) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		filter := ScheduleFilter{
@@ -287,6 +359,7 @@ func GetSchedule(db *gorm.DB) fiber.Handler {
 			Date:      c.Query("date"),
 			Queue:     c.Query("queue"),
 			Formatted: c.Query("formatted") == "1",
+			Format:    c.Query("format", "json"),
 		}
 
 		if limitStr := c.Query("limit"); limitStr != "" {

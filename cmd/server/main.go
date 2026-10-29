@@ -69,6 +69,8 @@ func runServer() error {
 	app.Use(rateLimiter.Middleware())
 	app.Use(middleware.Logger())
 
+	app.Static("/static", "./static")
+	app.Get("/health", handlers.GetHealth(db))
 	api := app.Group("/cherkasyoblenergo/api")
 	api.Get("/", handlers.GetAPIInfo())
 	api.Get("/blackout-schedule", handlers.GetSchedule(db))
